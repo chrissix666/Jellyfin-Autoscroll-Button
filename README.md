@@ -118,10 +118,10 @@ No configuration is required.
 
 You may adjust the following values directly in the script:
 
-js
 const speeds = [0.03, 0.06, 0.2];      // Scroll speed presets
 const delayStates = [0, 1, 3, 5, 10];  // Top delay options in seconds
-const bottomDelay = 3000;             // Bottom pause in milliseconds
+const bottomDelay = 3000;               // Bottom pause in milliseconds
+
 
 ---
 
