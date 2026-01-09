@@ -56,7 +56,7 @@ All speed and delay adjustments are **temporary**.
 
 ---
 
-## Delay Button Explained
+## Delay Option Explained
 
 The **delay button (triple click)** controls how long the script waits at the **top of the page** before scrolling starts.
 
