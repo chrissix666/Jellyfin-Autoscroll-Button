@@ -105,10 +105,7 @@ However:
 1. Copy the script into your Jellyfin JavaScript injector  
    (userscript manager, custom JS loader, or similar).
 
-2. Ensure the Jellyfin header contains the `.headerRight` container  
-   (default Jellyfin UI layout).
-
-3. Reload the page.
+2. Reload the page.
 
 No configuration is required.
 
