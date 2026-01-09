@@ -18,16 +18,17 @@
 
     let lastPage = window.location.href;
 
-    let delayTopPending = true;   // merkt, ob Delay oben ausstehen soll
-    let delayBottomPending = false; // merkt, ob Delay unten gerade läuft
+    let delayTopPending = true;
+    let delayBottomPending = false;
 
+    // --- Google Fonts: komplette Schrift laden ---
     function injectFont() {
         if (document.getElementById('jf-material-symbols')) return;
         const link = document.createElement('link');
         link.id = 'jf-material-symbols';
         link.rel = 'stylesheet';
-        link.href =
-            'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&icon_names=arrow_circle_down,pause,counter_1,counter_2,counter_3';
+        // komplette Schrift, ohne Einschränkung auf einzelne Icons
+        link.href = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined';
         document.head.appendChild(link);
     }
 
@@ -54,10 +55,10 @@
                 border-radius:4px;
             }
             .timer-display {
-                margin-left: 4px;
-                font-weight: bold;
-                font-size: 14px;
-                vertical-align: middle;
+                margin-left:4px;
+                font-weight:bold;
+                font-size:14px;
+                vertical-align:middle;
             }
         `;
         document.head.appendChild(style);
@@ -67,8 +68,6 @@
 
     async function startScroll(scrollContainer) {
         while (scrolling) {
-
-            // --- Delay oben ---
             if (scrollContainer.scrollTop === 0 && delayTopPending) {
                 delayTopPending = false;
                 if (delayStates[currentDelayIndex] > 0) {
@@ -78,18 +77,17 @@
 
             scrollContainer.scrollTop += speeds[speedIndex] * 16;
 
-            // --- Delay unten ---
             if (scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight) {
                 if (!delayBottomPending) {
                     delayBottomPending = true;
                     await sleep(bottomDelay);
                     scrollContainer.scrollTop = 0;
                     delayBottomPending = false;
-                    delayTopPending = true; // nächster Zyklus oben Delay wieder aktiv
+                    delayTopPending = true;
                 }
             }
 
-            await sleep(16); // ~60fps
+            await sleep(16);
         }
     }
 
@@ -115,7 +113,6 @@
 
         btn.addEventListener('click', () => {
             clickCount++;
-
             if (clickTimer) clearTimeout(clickTimer);
 
             clickTimer = setTimeout(() => {
@@ -134,21 +131,18 @@
                     display.textContent = delayStates[currentDelayIndex];
                     setTimeout(() => { display.textContent = ''; }, 500);
                 }
-
                 clickCount = 0;
             }, 250);
         });
 
         header.insertBefore(btn, header.firstChild);
 
-        // --- Seitenwechsel überwachen ---
         setInterval(() => {
             if (window.location.href !== lastPage) {
                 lastPage = window.location.href;
                 if (scrolling) {
                     scrollContainer.scrollTop = 0;
-                    delayTopPending = true; // neuer Scroll von oben → Delay erneut auslösen
-                    // delayBottomPending bleibt unabhängig
+                    delayTopPending = true;
                 }
             }
         }, 200);
