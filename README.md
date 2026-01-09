@@ -17,9 +17,8 @@ Designed for passive browsing, dashboards, or hands-free content discovery.
 - Three adjustable scroll speed levels
 - Five-step configurable delay at the top of the page (default: 0)
 - Automatic pause at the bottom, then reset to top
-- Smooth ~60fps scrolling
 - Visual feedback using Material Symbols
-- No external dependencies
+- No external dependencies (Only JavaScript Injector)
 - Fully client-side, no backend interaction
 
 ---
