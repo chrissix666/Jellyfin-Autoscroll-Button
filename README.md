@@ -82,8 +82,6 @@ The delay is applied:
   - Page automatically jumps back to the top
   - Optional top delay is applied before scrolling resumes
 - Page navigation resets the scroll cycle cleanly
-- Uses `.main-content` as scroll container when available  
-  Falls back to full page scrolling otherwise
 
 ---
 
