@@ -1,9 +1,7 @@
 # Jellyfin Auto Scroll Button
 
-Tested only for Windows for Web (Chrome)
-
+Tested only for Windows for Web (Chrome).
 A lightweight client-side script that adds an Auto Scroll button to the Jellyfin UI.
-
 It enables continuous vertical scrolling with adjustable speed and configurable pause delays.
 
 Originally created as a complementary button for **Jellyfin Random Button Extended**,  
