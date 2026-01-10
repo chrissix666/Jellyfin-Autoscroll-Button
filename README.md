@@ -1,3 +1,6 @@
+![Auto Scroll Button Screenshot](Screenshot.jpg)
+
+
 # Jellyfin Auto Scroll Button
 
 Tested only for Windows for Web (Chrome).
