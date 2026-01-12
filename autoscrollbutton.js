@@ -1,6 +1,10 @@
 (function () {
     'use strict';
 
+    // Run only on Windows browsers
+    const isWindows = navigator.userAgent.includes('Windows') || navigator.platform.includes('Win');
+    if (!isWindows) return;
+
     const ICON_CLASS = 'material-symbols-outlined';
     const BUTTON_ID = 'jf-scroll-btn';
     const HEADER_SELECTOR = '.headerRight';
