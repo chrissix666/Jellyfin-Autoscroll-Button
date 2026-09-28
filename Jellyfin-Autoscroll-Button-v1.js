@@ -25,15 +25,23 @@
     let delayTopPending = true;
     let delayBottomPending = false;
 
-    // --- Google Fonts: komplette Schrift laden ---
-    function injectFont() {
-        if (document.getElementById('jf-material-symbols')) return;
-        const link = document.createElement('link');
-        link.id = 'jf-material-symbols';
-        link.rel = 'stylesheet';
-        // komplette Schrift, ohne Einschränkung auf einzelne Icons
-        link.href = 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined';
-        document.head.appendChild(link);
+    // Inline SVG icons instead of relying on the "Material Symbols Outlined"
+    // icon font loaded from fonts.googleapis.com: whenever that font couldn't
+    // load (blocked, offline, privacy extensions) or hadn't loaded yet, the
+    // ligature text (e.g. "arrow_circle_down") was shown instead of the icon. The
+    // paths are the glyphs of the exact font file fonts.googleapis.com
+    // serves for this family, drawn at the same 24px, so the icons look
+    // exactly as before, and the font no longer needs to be requested.
+    const ICON_PATHS = {
+        arrow_circle_down: 'M480 -320 640 -480 584 -536 520 -472V-640H440V-472L376 -536L320 -480ZM480 -80Q397 -80 324.0 -111.5Q251 -143 197.0 -197.0Q143 -251 111.5 -324.0Q80 -397 80 -480Q80 -563 111.5 -636.0Q143 -709 197.0 -763.0Q251 -817 324.0 -848.5Q397 -880 480 -880Q563 -880 636.0 -848.5Q709 -817 763.0 -763.0Q817 -709 848.5 -636.0Q880 -563 880 -480Q880 -397 848.5 -324.0Q817 -251 763.0 -197.0Q709 -143 636.0 -111.5Q563 -80 480 -80ZM480 -160Q614 -160 707.0 -253.0Q800 -346 800 -480Q800 -614 707.0 -707.0Q614 -800 480 -800Q346 -800 253.0 -707.0Q160 -614 160 -480Q160 -346 253.0 -253.0Q346 -160 480 -160ZM480 -480Q480 -480 480.0 -480.0Q480 -480 480 -480Q480 -480 480.0 -480.0Q480 -480 480 -480Q480 -480 480.0 -480.0Q480 -480 480 -480Q480 -480 480.0 -480.0Q480 -480 480 -480Z',
+        pause: 'M520 -200V-760H760V-200ZM200 -200V-760H440V-200ZM600 -280H680V-680H600ZM280 -280H360V-680H280ZM280 -680V-280ZM600 -680V-280Z',
+        counter_1: 'M480 -80Q397 -80 324.0 -111.5Q251 -143 197.0 -197.0Q143 -251 111.5 -324.0Q80 -397 80 -480Q80 -563 111.5 -636.0Q143 -709 197.0 -763.0Q251 -817 324.0 -848.5Q397 -880 480 -880Q563 -880 636.0 -848.5Q709 -817 763.0 -763.0Q817 -709 848.5 -636.0Q880 -563 880 -480Q880 -397 848.5 -324.0Q817 -251 763.0 -197.0Q709 -143 636.0 -111.5Q563 -80 480 -80ZM480 -160Q614 -160 707.0 -253.0Q800 -346 800 -480Q800 -614 707.0 -707.0Q614 -800 480 -800Q346 -800 253.0 -707.0Q160 -614 160 -480Q160 -346 253.0 -253.0Q346 -160 480 -160ZM480 -480Q480 -480 480.0 -480.0Q480 -480 480 -480Q480 -480 480.0 -480.0Q480 -480 480 -480Q480 -480 480.0 -480.0Q480 -480 480 -480Q480 -480 480.0 -480.0Q480 -480 480 -480ZM460 -280H540V-680H380V-600H460Z',
+        counter_2: 'M480 -80Q397 -80 324.0 -111.5Q251 -143 197.0 -197.0Q143 -251 111.5 -324.0Q80 -397 80 -480Q80 -563 111.5 -636.0Q143 -709 197.0 -763.0Q251 -817 324.0 -848.5Q397 -880 480 -880Q563 -880 636.0 -848.5Q709 -817 763.0 -763.0Q817 -709 848.5 -636.0Q880 -563 880 -480Q880 -397 848.5 -324.0Q817 -251 763.0 -197.0Q709 -143 636.0 -111.5Q563 -80 480 -80ZM480 -160Q614 -160 707.0 -253.0Q800 -346 800 -480Q800 -614 707.0 -707.0Q614 -800 480 -800Q346 -800 253.0 -707.0Q160 -614 160 -480Q160 -346 253.0 -253.0Q346 -160 480 -160ZM480 -480Q480 -480 480.0 -480.0Q480 -480 480 -480Q480 -480 480.0 -480.0Q480 -480 480 -480Q480 -480 480.0 -480.0Q480 -480 480 -480Q480 -480 480.0 -480.0Q480 -480 480 -480ZM360 -280H600V-360H440V-440Q440 -440 440.0 -440.0Q440 -440 440 -440H520Q553 -440 576.5 -463.5Q600 -487 600 -520V-600Q600 -633 576.5 -656.5Q553 -680 520 -680H360V-600H520Q520 -600 520.0 -600.0Q520 -600 520 -600V-520Q520 -520 520.0 -520.0Q520 -520 520 -520H440Q407 -520 383.5 -496.5Q360 -473 360 -440Z',
+        counter_3: 'M480 -80Q397 -80 324.0 -111.5Q251 -143 197.0 -197.0Q143 -251 111.5 -324.0Q80 -397 80 -480Q80 -563 111.5 -636.0Q143 -709 197.0 -763.0Q251 -817 324.0 -848.5Q397 -880 480 -880Q563 -880 636.0 -848.5Q709 -817 763.0 -763.0Q817 -709 848.5 -636.0Q880 -563 880 -480Q880 -397 848.5 -324.0Q817 -251 763.0 -197.0Q709 -143 636.0 -111.5Q563 -80 480 -80ZM480 -160Q614 -160 707.0 -253.0Q800 -346 800 -480Q800 -614 707.0 -707.0Q614 -800 480 -800Q346 -800 253.0 -707.0Q160 -614 160 -480Q160 -346 253.0 -253.0Q346 -160 480 -160ZM480 -480Q480 -480 480.0 -480.0Q480 -480 480 -480Q480 -480 480.0 -480.0Q480 -480 480 -480Q480 -480 480.0 -480.0Q480 -480 480 -480Q480 -480 480.0 -480.0Q480 -480 480 -480ZM360 -280H520Q553 -280 576.5 -303.5Q600 -327 600 -360V-420Q600 -446 583.0 -463.0Q566 -480 540 -480Q566 -480 583.0 -497.0Q600 -514 600 -540V-600Q600 -633 576.5 -656.5Q553 -680 520 -680H360V-600H520Q520 -600 520.0 -600.0Q520 -600 520 -600V-520Q520 -520 520.0 -520.0Q520 -520 520 -520H440V-440H520Q520 -440 520.0 -440.0Q520 -440 520 -440V-360Q520 -360 520.0 -360.0Q520 -360 520 -360H360Z'
+    };
+
+    function iconSvg(name) {
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true" style="display:block"><path d="' + ICON_PATHS[name] + '"/></svg>';
     }
 
     function injectStyle() {
@@ -106,7 +114,7 @@
 
         const icon = document.createElement('span');
         icon.className = ICON_CLASS;
-        icon.textContent = 'arrow_circle_down';
+        icon.innerHTML = iconSvg('arrow_circle_down');
         btn.appendChild(icon);
 
         const display = document.createElement('span');
@@ -122,13 +130,13 @@
             clickTimer = setTimeout(() => {
                 if (clickCount === 1) {
                     scrolling = !scrolling;
-                    icon.textContent = scrolling ? 'pause' : 'arrow_circle_down';
+                    icon.innerHTML = iconSvg(scrolling ? 'pause' : 'arrow_circle_down');
                     if (scrolling) startScroll(scrollContainer);
                 } else if (clickCount === 2) {
                     speedIndex = (speedIndex + 1) % speeds.length;
-                    icon.textContent = `counter_${speedIndex + 1}`;
+                    icon.innerHTML = iconSvg(`counter_${speedIndex + 1}`);
                     setTimeout(() => {
-                        icon.textContent = scrolling ? 'pause' : 'arrow_circle_down';
+                        icon.innerHTML = iconSvg(scrolling ? 'pause' : 'arrow_circle_down');
                     }, 500);
                 } else if (clickCount === 3) {
                     currentDelayIndex = (currentDelayIndex + 1) % delayStates.length;
@@ -156,7 +164,6 @@
         const interval = setInterval(() => {
             if (document.querySelector(HEADER_SELECTOR)) {
                 clearInterval(interval);
-                injectFont();
                 injectStyle();
                 createButton();
             }
