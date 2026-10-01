@@ -5,7 +5,7 @@
     const isWindows = navigator.userAgent.includes('Windows') || navigator.platform.includes('Win');
     if (!isWindows) return;
 
-    const ICON_CLASS = 'material-symbols-outlined';
+    const ICON_CLASS = 'material-icons';
     const BUTTON_ID = 'jf-scroll-btn';
     const HEADER_SELECTOR = '.headerRight';
 
@@ -40,8 +40,10 @@
         counter_3: 'M480 -80Q397 -80 324.0 -111.5Q251 -143 197.0 -197.0Q143 -251 111.5 -324.0Q80 -397 80 -480Q80 -563 111.5 -636.0Q143 -709 197.0 -763.0Q251 -817 324.0 -848.5Q397 -880 480 -880Q563 -880 636.0 -848.5Q709 -817 763.0 -763.0Q817 -709 848.5 -636.0Q880 -563 880 -480Q880 -397 848.5 -324.0Q817 -251 763.0 -197.0Q709 -143 636.0 -111.5Q563 -80 480 -80ZM480 -160Q614 -160 707.0 -253.0Q800 -346 800 -480Q800 -614 707.0 -707.0Q614 -800 480 -800Q346 -800 253.0 -707.0Q160 -614 160 -480Q160 -346 253.0 -253.0Q346 -160 480 -160ZM480 -480Q480 -480 480.0 -480.0Q480 -480 480 -480Q480 -480 480.0 -480.0Q480 -480 480 -480Q480 -480 480.0 -480.0Q480 -480 480 -480Q480 -480 480.0 -480.0Q480 -480 480 -480ZM360 -280H520Q553 -280 576.5 -303.5Q600 -327 600 -360V-420Q600 -446 583.0 -463.0Q566 -480 540 -480Q566 -480 583.0 -497.0Q600 -514 600 -540V-600Q600 -633 576.5 -656.5Q553 -680 520 -680H360V-600H520Q520 -600 520.0 -600.0Q520 -600 520 -600V-520Q520 -520 520.0 -520.0Q520 -520 520 -520H440V-440H520Q520 -440 520.0 -440.0Q520 -440 520 -440V-360Q520 -360 520.0 -360.0Q520 -360 520 -360H360Z'
     };
 
+    // Sized 1em so the icon follows the font size Jellyfin gives its own
+    // header icons (.paper-icon-button-light > .material-icons).
     function iconSvg(name) {
-        return '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true" style="display:block"><path d="' + ICON_PATHS[name] + '"/></svg>';
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true" style="display:block"><path d="' + ICON_PATHS[name] + '"/></svg>';
     }
 
     function injectStyle() {
@@ -49,28 +51,21 @@
         const style = document.createElement('style');
         style.id = 'jf-scroll-style';
         style.textContent = `
-            .${ICON_CLASS} {
-                font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;
-                font-size:24px;
-                display:inline-block;
-                vertical-align:middle;
-            }
-            #${BUTTON_ID} {
-                background:transparent;
-                border:none;
-                padding:4px;
-                cursor:pointer;
-                color:inherit;
-            }
-            #${BUTTON_ID}:hover {
-                background:rgba(255,255,255,0.1);
-                border-radius:4px;
-            }
-            .timer-display {
-                margin-left:4px;
+            /* Overlaid on the icon, so the round button keeps its shape
+               while the delay number is shown. */
+            #${BUTTON_ID} .timer-display {
+                position:absolute;
+                inset:0;
+                display:flex;
+                align-items:center;
+                justify-content:center;
                 font-weight:bold;
                 font-size:14px;
-                vertical-align:middle;
+                z-index:2;
+                pointer-events:none;
+            }
+            #${BUTTON_ID} .timer-display:empty {
+                display:none;
             }
         `;
         document.head.appendChild(style);
@@ -107,13 +102,18 @@
         const header = document.querySelector(HEADER_SELECTOR);
         if (!header || document.getElementById(BUTTON_ID)) return;
 
+        // Same classes as Jellyfin's own header buttons (SyncPlay, Cast,
+        // Search), so size, round hover/active highlight and colour come
+        // from Jellyfin's stylesheet and the active theme, 1:1.
         const btn = document.createElement('button');
+        btn.type = 'button';
         btn.id = BUTTON_ID;
-        btn.className = 'headerButton';
+        btn.className = 'headerButton headerButtonRight paper-icon-button-light';
         btn.title = 'Autoscroll';
 
         const icon = document.createElement('span');
         icon.className = ICON_CLASS;
+        icon.setAttribute('aria-hidden', 'true');
         icon.innerHTML = iconSvg('arrow_circle_down');
         btn.appendChild(icon);
 
