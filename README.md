@@ -128,7 +128,7 @@ const bottomDelay = 3000;              // Bottom pause in milliseconds
 
 ## Tested On
 
-Jellyfin 10.10.7
+Jellyfin 10.10.7 and 12.0+
 Windows 11
 Chrome / Chromium-based browsers
 
