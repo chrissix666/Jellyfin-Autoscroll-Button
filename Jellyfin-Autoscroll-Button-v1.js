@@ -1,14 +1,15 @@
 (function () {
     'use strict';
 
-    /* jfcompat 1.0 - one script for Jellyfin web 10.10.7 and 12.1.
+    /* jfcompat 1.1 - one script for Jellyfin web 10.10.7 and 12.1 (1.1: layout
+     * setting scheme of 10.11 = 10.10, isModernLayoutModel).
      * Paste this block unchanged at the top of a script (inside its IIFE).
      * It is pure: no side effects at load, no globals except window.jfcompat
      * (set only when absent, for console checks; scripts use the local const).
      * Rule: on 10.10.7 every answer equals what the scripts computed before. */
     const jfcompat = (function () {
         'use strict';
-        const VERSION = '1.0';
+        const VERSION = '1.1';
 
         // ---------- version ----------
         // The web client ships with the server, so the server version decides.
@@ -28,12 +29,28 @@
             } catch (e) { /* ignore */ }
             return null;
         }
-        // 12.x model: modern layout default, routes without .html, legacy auth off.
-        // 10.11 was not audited; treated as the new model (live-check before relying on it).
+        // New model (>= 10.11): routes without .html, no Trailers tab on the
+        // Movies pages. Audited 2026-10-02 against web 10.11.11 (appRouter.js:404,
+        // moviesrecommended.js:229-241, apps/experimental/routes/movies/index.tsx:46-51).
+        // The layout setting is NOT part of it: 10.11 still has the 10.10 scheme,
+        // see isModernLayoutModel().
         function isNewModel() {
             const v = serverVersion();
             if (v) return v.major > 10 || (v.major === 10 && v.minor >= 11);
             return document.documentElement.hasAttribute('data-theme');
+        }
+
+        // Layout setting scheme of 12.x: modern by default, 'desktop-legacy' /
+        // 'mobile-legacy' / 'tv' classic (constants/layoutMode.ts, apphost.js
+        // 12.0:185-186). 10.10 and 10.11 instead: classic by default, MUI only for
+        // 'experimental' (layoutManager.js identical in 10.10.7 and 10.11.11,
+        // RootAppRouter.tsx 10.11.11:21-22). Without a server version the 12.x
+        // hint of isNewModel() decides (10.11 sets data-theme too; the DOM check
+        // in getLayout() comes first anyway).
+        function isModernLayoutModel() {
+            const v = serverVersion();
+            if (v) return v.major >= 12;
+            return isNewModel();
         }
 
         // ---------- routes ----------
@@ -92,7 +109,7 @@
             // 2) the setting, read the way each version reads it (not cached)
             let v = '';
             try { v = localStorage.getItem('layout') || ''; } catch (e) { /* ignore */ }
-            if (isNewModel()) return LEGACY_12.indexOf(v) >= 0 ? 'classic' : 'mui';
+            if (isModernLayoutModel()) return LEGACY_12.indexOf(v) >= 0 ? 'classic' : 'mui';
             return v === 'experimental' ? 'mui' : 'classic';
         }
         function isMui() { return getLayout() === 'mui'; }
@@ -208,10 +225,12 @@
         if (!window.jfcompat) window.jfcompat = api;
         return api;
     })();
-    /* end jfcompat 1.0 */
+    /* end jfcompat 1.1 */
 
-    // Run only on Windows browsers
-    const isWindows = navigator.userAgent.includes('Windows') || navigator.platform.includes('Win');
+    // Run only on Windows browsers. The Xbox app reports "Windows NT 10.0;
+    // ... Xbox" but runs full screen in TV layout without a mouse: not wanted.
+    const isXbox = /Xbox/i.test(navigator.userAgent);
+    const isWindows = !isXbox && (navigator.userAgent.includes('Windows') || navigator.platform.includes('Win'));
     if (!isWindows) return;
 
     const ICON_CLASS = 'material-icons';
@@ -231,7 +250,10 @@
     let lastPage = window.location.href;
 
     let delayTopPending = true;
-    let delayBottomPending = false;
+
+    // Each start gets a new id; a loop whose id is no longer current (or
+    // that finds scrolling off) ends after its pause instead of going on.
+    let loopId = 0;
 
     // Inline SVG icons instead of relying on the "Material Symbols Outlined"
     // icon font loaded from fonts.googleapis.com: whenever that font couldn't
@@ -281,25 +303,49 @@
 
     function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
 
-    async function startScroll(scrollContainer) {
-        while (scrolling) {
+    // The element that really scrolls: the document on every page except
+    // the Live TV guide, whose program list scrolls inside its own
+    // .guideVerticalScroller (components/guide/tvguide.template.html:20).
+    function getScrollContainer() {
+        const guide = document.querySelector('.guideVerticalScroller');
+        if (guide && guide.getClientRects().length > 0 && guide.scrollHeight > guide.clientHeight) return guide;
+        return document.documentElement;
+    }
+
+    async function startScroll() {
+        const id = ++loopId;
+        const alive = () => scrolling && id === loopId;
+        // Sub-pixel steps (0.48 / 0.96 px): where the engine drops such a step
+        // (scrollTop unchanged), the missed distance is carried into the next
+        // step, at most 1 px, so speed 1 cannot stall. Wherever a step moves
+        // the page (fractional or device-pixel scroll), carry stays 0 and the
+        // motion is exactly as before.
+        let carry = 0;
+        while (alive()) {
+            // Looked up each step: the guide renders after the page change
+            scrollContainer = getScrollContainer();
             if (scrollContainer.scrollTop === 0 && delayTopPending) {
                 delayTopPending = false;
                 if (delayStates[currentDelayIndex] > 0) {
                     await sleep(delayStates[currentDelayIndex] * 1000);
+                    if (!alive()) return;
                 }
             }
 
-            scrollContainer.scrollTop += speeds[speedIndex] * 16;
+            const step = speeds[speedIndex] * 16;
+            const before = scrollContainer.scrollTop;
+            scrollContainer.scrollTop = before + step + carry;
+            carry = scrollContainer.scrollTop !== before ? 0 : Math.min(1, carry + step);
 
-            if (scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight) {
-                if (!delayBottomPending) {
-                    delayBottomPending = true;
-                    await sleep(bottomDelay);
-                    scrollContainer.scrollTop = 0;
-                    delayBottomPending = false;
-                    delayTopPending = true;
-                }
+            // 1 px tolerance: at 125 % / 150 % zoom the last scroll position
+            // can stay a fraction of a pixel short of the bottom.
+            if (scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight - 1) {
+                await sleep(bottomDelay);
+                // Stopped (or restarted) during the pause: stay at the bottom
+                if (!alive()) return;
+                scrollContainer.scrollTop = 0;
+                delayTopPending = true;
+                carry = 0;
             }
 
             await sleep(16);
@@ -307,6 +353,20 @@
     }
 
     let scrollContainer = null;
+
+    // The one button element; kept here so a button taken out of the MUI
+    // bar (public pages) comes back with its state instead of a new one.
+    let buttonEl = null;
+
+    // Stops a running scroll and shows the start icon again (used where the
+    // button cannot be reached: video player, dashboard, pages without header).
+    function stopScrolling() {
+        if (!scrolling) return;
+        scrolling = false;
+        loopId++;
+        const icon = buttonEl && buttonEl.querySelector('.' + ICON_CLASS);
+        if (icon) icon.innerHTML = iconSvg('arrow_circle_down');
+    }
 
     function buildButton() {
         const btn = document.createElement('button');
@@ -324,8 +384,6 @@
         display.className = 'timer-display';
         btn.appendChild(display);
 
-        scrollContainer = document.querySelector('.main-content') || document.documentElement;
-
         btn.addEventListener('click', () => {
             clickCount++;
             if (clickTimer) clearTimeout(clickTimer);
@@ -334,7 +392,7 @@
                 if (clickCount === 1) {
                     scrolling = !scrolling;
                     icon.innerHTML = iconSvg(scrolling ? 'pause' : 'arrow_circle_down');
-                    if (scrolling) startScroll(scrollContainer);
+                    if (scrolling) startScroll();
                 } else if (clickCount === 2) {
                     speedIndex = (speedIndex + 1) % speeds.length;
                     icon.innerHTML = iconSvg(`counter_${speedIndex + 1}`);
@@ -349,6 +407,7 @@
                 clickCount = 0;
             }, 250);
         });
+        buttonEl = btn;
         return btn;
     }
 
@@ -356,7 +415,8 @@
         setInterval(() => {
             if (window.location.href !== lastPage) {
                 lastPage = window.location.href;
-                if (scrolling && scrollContainer) {
+                if (scrolling) {
+                    scrollContainer = getScrollContainer();
                     scrollContainer.scrollTop = 0;
                     delayTopPending = true;
                 }
@@ -376,7 +436,7 @@
     // Left-to-right order of the custom header buttons (Random, Autoscroll,
     // Fullscreen, Cinema), so they line up the same in both layouts no
     // matter which script runs first.
-    const HEADER_BUTTON_ORDER = ['randomMovieButton', 'jf-scroll-btn', 'jf-fullscreen-btn', 'jf-cinema-btn'];
+    const HEADER_BUTTON_ORDER = ['randomMovieButton', 'jf-scroll-btn', 'jf-fullscreen-btn', 'jf-cinema-btn', 'jf-destroy-btn'];
 
     // In the classic header Random sits in its own wrapper div.
     function headerButtonRank(el) {
@@ -385,6 +445,7 @@
 
     // Puts el into box right before the first element that belongs after
     // it: a Jellyfin button or a custom button later in the order.
+    // Returns true when it had to move el.
     function placeInOrder(box, el) {
         const myRank = headerButtonRank(el);
         let ref = null;
@@ -393,7 +454,39 @@
             const rank = headerButtonRank(child);
             if (rank === -1 || rank > myRank) { ref = child; break; }
         }
-        if (el.parentElement !== box || el.nextElementSibling !== ref) box.insertBefore(el, ref);
+        if (el.parentElement !== box || el.nextElementSibling !== ref) { box.insertBefore(el, ref); return true; }
+        return false;
+    }
+
+    // MUI bar: re-order when something moved in front of the button, but at
+    // most REORDER_MAX times per REORDER_WINDOW_MS. After that only a missing
+    // button is placed again, so a foreign script that also puts itself
+    // first on every DOM change cannot start an endless insert loop.
+    const REORDER_MAX = 10;
+    const REORDER_WINDOW_MS = 10000;
+    let reorderTimes = [];
+    function placeInOrderCapped(box, el) {
+        const inBox = el.parentElement === box;
+        if (inBox) {
+            const now = Date.now();
+            reorderTimes = reorderTimes.filter(t => now - t < REORDER_WINDOW_MS);
+            if (reorderTimes.length >= REORDER_MAX) return;
+        }
+        if (placeInOrder(box, el) && inBox) reorderTimes.push(Date.now());
+    }
+
+    // The MUI hover colour needs a style read; it is read again only when
+    // the theme changes. On 12.x the value counts only once it came from the
+    // theme's CSS variables (form 'rgba(r g b / a)'); a read made before the
+    // theme stylesheet applied returns the fallback and is retried.
+    function setMuiHover(btn) {
+        const theme = jfcompat.getThemeId();
+        if (btn.getAttribute('data-jf-mui-theme') === theme) return;
+        const color = jfcompat.getMuiHoverColor();
+        btn.style.setProperty('--jf-mui-hover', color);
+        if (!document.documentElement.hasAttribute('data-theme') || color.indexOf(' / ') >= 0) {
+            btn.setAttribute('data-jf-mui-theme', theme);
+        }
     }
 
     // Same box, padding, icon size, colour and hover transition as MUI's
@@ -430,13 +523,21 @@
     // unmounts on the video route and has no buttons on the login/server
     // pages); jfcompat batches the DOM changes with a short timer.
     function placeButton(box) {
-        if (!box) return;
-        let btn = document.getElementById(BUTTON_ID);
+        // No header (video player, dashboard): the button cannot be reached
+        // there, so a running scroll is stopped instead of going on unseen.
+        if (!box || jfcompat.isRoute('video')) stopScrolling();
+        if (!box) {
+            // MUI keeps the same toolbar box on the login/server pages but
+            // renders no buttons there; ours is a foreign node and would stay.
+            if (jfcompat.isMui() && buttonEl && buttonEl.parentElement) buttonEl.remove();
+            return;
+        }
+        let btn = document.getElementById(BUTTON_ID) || buttonEl;
         if (!btn) btn = buildButton();
         if (jfcompat.isMui()) {
             injectMuiStyle('jf-scroll-mui-style', BUTTON_ID);
             btn.className = 'jf-mui-header-btn';
-            btn.style.setProperty('--jf-mui-hover', jfcompat.getMuiHoverColor());
+            setMuiHover(btn);
         } else {
             // Same classes as Jellyfin's own header buttons (SyncPlay, Cast,
             // Search), so size, round hover/active highlight and colour come
@@ -448,7 +549,8 @@
         // every DOM change would fight other header scripts that move themselves.
         if (!jfcompat.isMui() && btn.parentElement === box) return;
         // After Random, before Fullscreen, Cinema and Jellyfin's buttons.
-        placeInOrder(box, btn);
+        if (jfcompat.isMui()) placeInOrderCapped(box, btn);
+        else placeInOrder(box, btn);
     }
 
     injectStyle();
