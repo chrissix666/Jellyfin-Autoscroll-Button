@@ -233,16 +233,23 @@
     const isWindows = !isXbox && (navigator.userAgent.includes('Windows') || navigator.platform.includes('Win'));
     if (!isWindows) return;
 
+    // One copy per page, also when the Essentials plugin and the JavaScript Injector both load it.
+    if (window.__jfAutoscrollButton) return;
+    window.__jfAutoscrollButton = true;
+
+    // Settings from the Essentials plugin; without it the values below hold.
+    const essentials = (window.JellyfinEssentials && window.JellyfinEssentials.settings && window.JellyfinEssentials.settings.autoscroll) || {};
+
     const ICON_CLASS = 'material-icons';
     const BUTTON_ID = 'jf-scroll-btn';
 
     let scrolling = false;
-    let speedIndex = 0;
-    const speeds = [0.03, 0.06, 0.2];
+    const speeds = essentials.speeds && essentials.speeds.length === 3 ? essentials.speeds : [0.03, 0.06, 0.2];
+    let speedIndex = essentials.speedStart ? Math.min(Math.max(essentials.speedStart - 1, 0), 2) : 0;
 
-    const delayStates = [0, 1, 3, 5, 10]; // Triple-Click Delay Optionen
-    let currentDelayIndex = 0;
-    const bottomDelay = 3000; // 3 Sekunden unten
+    const delayStates = essentials.delayStates || [0, 1, 3, 5, 10]; // seconds, stepped through by a triple-click
+    let currentDelayIndex = essentials.delayStart ? Math.min(Math.max(essentials.delayStart - 1, 0), delayStates.length - 1) : 0;
+    const bottomDelay = essentials.bottomDelay != null ? essentials.bottomDelay : 3000; // ms at the bottom
 
     let clickCount = 0;
     let clickTimer = null;
